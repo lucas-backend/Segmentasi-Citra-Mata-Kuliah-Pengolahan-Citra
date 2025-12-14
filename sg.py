@@ -124,7 +124,39 @@ def calculate_mse(imageA, imageB):
     err /= float(imageA.shape[0] * imageA.shape[1])
     return err
 
-# --- 5. Main Execution ---
+# --- 5. Fungsi Visualisasi Grafik MSE ---
+def plot_mse_comparison(methods, mse_gauss, mse_snp):
+    x = np.arange(len(methods))  # Lokasi label
+    width = 0.35  # Lebar bar
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    rects1 = ax.bar(x - width/2, mse_gauss, width, label='Gaussian Noise', color='skyblue')
+    rects2 = ax.bar(x + width/2, mse_snp, width, label='Salt & Pepper Noise', color='salmon')
+
+    # Menambahkan teks label, judul, dan konfigurasi sumbu
+    ax.set_ylabel('Nilai Mean Squared Error (MSE)')
+    ax.set_title('Perbandingan MSE Berdasarkan Metode Deteksi Tepi')
+    ax.set_xticks(x)
+    ax.set_xticklabels(methods)
+    ax.legend()
+
+    # Menambahkan label nilai di atas bar
+    def autolabel(rects):
+        for rect in rects:
+            height = rect.get_height()
+            ax.annotate(f'{height:.1f}',
+                        xy=(rect.get_x() + rect.get_width() / 2, height),
+                        xytext=(0, 3),  # 3 points vertical offset
+                        textcoords="offset points",
+                        ha='center', va='bottom')
+
+    autolabel(rects1)
+    autolabel(rects2)
+
+    fig.tight_layout()
+    plt.show()
+
+# --- 6. Main Execution ---
 
 # Daftar file spesifik Landscape
 files_landscape = [
@@ -147,6 +179,10 @@ methods = ['Roberts', 'Prewitt', 'Sobel', 'Frei-Chen']
 print(f"{'Metode':<12} | {'MSE Gaussian':<15} | {'MSE Salt & Pepper':<15}")
 print("-" * 50)
 
+# List untuk menyimpan data guna plotting grafik
+mse_gauss_list = []
+mse_snp_list = []
+
 for method in methods:
     # Mengambil hasil segmentasi dari cache
     # Index 1 adalah landscape-grey (referensi)
@@ -162,4 +198,12 @@ for method in methods:
     mse_gauss = calculate_mse(ref_img, gauss_img)
     mse_snp = calculate_mse(ref_img, snp_img)
     
+    # Simpan ke list
+    mse_gauss_list.append(mse_gauss)
+    mse_snp_list.append(mse_snp)
+    
     print(f"{method:<12} | {mse_gauss:<15.2f} | {mse_snp:<15.2f}")
+
+# Panggil fungsi plotting grafik MSE
+print("\nMenampilkan Grafik Perbandingan MSE...")
+plot_mse_comparison(methods, mse_gauss_list, mse_snp_list)
