@@ -350,20 +350,3 @@ else:
 
     fig.tight_layout()
     plt.show()
-
-    # --- C. Visualisasi Gambar (Opsional untuk cek visual) ---
-    fig2, axes = plt.subplots(1, 3, figsize=(15, 5))
-    axes[0].imshow(img_snp, cmap='gray')
-    axes[0].set_title("Original S&P Noise")
-    axes[0].axis('off')
-    
-    axes[1].imshow(img_snp_median, cmap='gray')
-    axes[1].set_title("Hasil Manual Median Filter")
-    axes[1].axis('off')
-    
-    axes[2].imshow(img_snp_mean, cmap='gray')
-    axes[2].set_title("Hasil Manual Mean Filter")
-    axes[2].axis('off')
-    
-    plt.tight_layout()
-    plt.show()
