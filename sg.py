@@ -207,3 +207,163 @@ for method in methods:
 # Panggil fungsi plotting grafik MSE
 print("\nMenampilkan Grafik Perbandingan MSE...")
 plot_mse_comparison(methods, mse_gauss_list, mse_snp_list)
+
+
+# Tambahan
+
+# --- 7. Fungsi Filter Manual ---
+
+def manual_mean_filter(image):
+    # Filter Mean pada dasarnya adalah konvolusi dengan kernel rata-rata
+    # Kita menggunakan kembali fungsi manual_convolution yang sudah dibuat
+    kernel = np.ones((3, 3), dtype=float) / 9.0
+    return manual_convolution(image, kernel).astype(np.uint8)
+
+def manual_median_filter(image, kernel_size=3):
+    h, w = image.shape
+    pad = kernel_size // 2
+    
+    # Padding citra agar ukuran tetap sama
+    padded_img = np.pad(image, ((pad, pad), (pad, pad)), mode='edge')
+    output = np.zeros_like(image)
+    
+    # Sliding window manual
+    for i in range(h):
+        for j in range(w):
+            # Ambil area tetangga (window)
+            window = padded_img[i:i+kernel_size, j:j+kernel_size]
+            
+            # Ubah array 2D menjadi 1D list
+            flat_window = window.flatten()
+            
+            # Urutkan nilai pixel (sorting manual bisa dilakukan, tapi np.sort diperbolehkan)
+            sorted_window = np.sort(flat_window)
+            
+            # Ambil nilai tengah
+            median_val = sorted_window[len(sorted_window) // 2]
+            output[i, j] = median_val
+            
+    return output
+
+# --- 8. Fungsi Helper Resize (Agar konsisten) ---
+def load_and_resize(filename, width=300):
+    img = cv2.imread(filename)
+    if img is None:
+        return None
+    h, w = img.shape[:2]
+    aspect = h/w
+    img = cv2.resize(img, (width, int(width*aspect)))
+    if len(img.shape) == 3:
+        return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    return img
+
+# --- 9. Eksekusi Utama (Perhitungan MSE & Visualisasi Grafik) ---
+
+# Load semua gambar dan resize di awal agar ukuran seragam
+img_ref_gray = load_and_resize("landscape-grey.jpg")
+img_gauss = load_and_resize("landscape-gaussian.jpg")
+img_snp = load_and_resize("landscape-snp.jpg")
+
+# Validasi File
+if (img_ref_gray is None) or (img_gauss is None) or (img_snp is None):
+    print("Error Salah satu file gambar tidak ditemukan.")
+else:
+    # A. Pra-pemrosesan Filter (Denoising)
+    print("Sedang melakukan filtering manual (Mean & Median)...")
+    
+    # Terapkan Filter Median & Mean pada Salt & Pepper
+    img_snp_median = manual_median_filter(img_snp)
+    img_snp_mean = manual_mean_filter(img_snp)
+
+    methods = ['Roberts', 'Prewitt', 'Sobel', 'Frei-Chen']
+    
+    # Siapkan dictionary untuk menampung data plot
+    plot_data = {
+        'S&P Raw': [],
+        'Gaussian Raw': [],
+        'S&P Median': [],
+        'S&P Mean': []
+    }
+    
+    print("\n--- Hasil Perbandingan MSE (4 Skenario) ---")
+    
+    # Header Tabel
+    header = f"{'Metode':<10} | {'1. S&P Raw':<12} | {'2. Gauss Raw':<12} | {'3. S&P Median':<12} | {'4. S&P Mean':<12}"
+    print(header)
+    print("-" * 70)
+
+    for method in methods:
+        # 1. Segmentasi Citra Referensi (Ground Truth)
+        seg_ref = apply_edge_detection(img_ref_gray, method)
+        
+        # 2. Segmentasi Citra Salt & Pepper (Tanpa Filter)
+        seg_snp = apply_edge_detection(img_snp, method)
+        
+        # 3. Segmentasi Citra Gaussian (Tanpa Filter)
+        seg_gauss = apply_edge_detection(img_gauss, method)
+        
+        # 4. Segmentasi Citra S&P + Filter Median
+        seg_snp_median = apply_edge_detection(img_snp_median, method)
+        
+        # 5. Segmentasi Citra S&P + Filter Mean
+        seg_snp_mean = apply_edge_detection(img_snp_mean, method)
+        
+        # Hitung MSE (FIX: Gunakan float untuk menghindari overflow uint8)
+        mse_1 = np.mean((seg_ref.astype(float) - seg_snp.astype(float)) ** 2)
+        mse_2 = np.mean((seg_ref.astype(float) - seg_gauss.astype(float)) ** 2)
+        mse_3 = np.mean((seg_ref.astype(float) - seg_snp_median.astype(float)) ** 2)
+        mse_4 = np.mean((seg_ref.astype(float) - seg_snp_mean.astype(float)) ** 2)
+        
+        # Simpan data ke dictionary untuk plotting
+        plot_data['S&P Raw'].append(mse_1)
+        plot_data['Gaussian Raw'].append(mse_2)
+        plot_data['S&P Median'].append(mse_3)
+        plot_data['S&P Mean'].append(mse_4)
+        
+        # Print baris tabel
+        row_str = f"{method:<10} | {mse_1:<12.2f} | {mse_2:<12.2f} | {mse_3:<12.2f} | {mse_4:<12.2f}"
+        print(row_str)
+
+    # --- B. Visualisasi Grafik Perbandingan ---
+    print("\nMenampilkan Grafik Perbandingan...")
+    
+    x = np.arange(len(methods))  # Lokasi label sumbu X
+    width = 0.2  # Lebar setiap bar
+    
+    fig, ax = plt.subplots(figsize=(12, 7))
+    
+    # Membuat 4 bar berdampingan
+    # Posisi diatur dengan offset dari x (misal: x - 1.5*width)
+    rects1 = ax.bar(x - 1.5*width, plot_data['S&P Raw'], width, label='1. S&P Raw', color='#ff9999')
+    rects2 = ax.bar(x - 0.5*width, plot_data['Gaussian Raw'], width, label='2. Gaussian Raw', color='#66b3ff')
+    rects3 = ax.bar(x + 0.5*width, plot_data['S&P Median'], width, label='3. S&P Median', color='#99ff99')
+    rects4 = ax.bar(x + 1.5*width, plot_data['S&P Mean'], width, label='4. S&P Mean', color='#ffcc99')
+
+    # Label dan Judul
+    ax.set_ylabel('Mean Squared Error (MSE)')
+    ax.set_title('Perbandingan Efektivitas Filter dan Noise pada Deteksi Tepi')
+    ax.set_xticks(x)
+    ax.set_xticklabels(methods)
+    ax.legend()
+    
+    ax.grid(axis='y', linestyle='--', alpha=0.7)
+
+    fig.tight_layout()
+    plt.show()
+
+    # --- C. Visualisasi Gambar (Opsional untuk cek visual) ---
+    fig2, axes = plt.subplots(1, 3, figsize=(15, 5))
+    axes[0].imshow(img_snp, cmap='gray')
+    axes[0].set_title("Original S&P Noise")
+    axes[0].axis('off')
+    
+    axes[1].imshow(img_snp_median, cmap='gray')
+    axes[1].set_title("Hasil Manual Median Filter")
+    axes[1].axis('off')
+    
+    axes[2].imshow(img_snp_mean, cmap='gray')
+    axes[2].set_title("Hasil Manual Mean Filter")
+    axes[2].axis('off')
+    
+    plt.tight_layout()
+    plt.show()
